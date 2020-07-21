@@ -7,28 +7,65 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        pass
+        self.reg = [0] * 8
+        self.pc = 0
+        self.ram = [None] * 256
+        
+        # Command Translations
+        self.SAVE = 0b10000010
+        self.PRINT_REG = 0b01000111
+        self.HALT = 0b00000001
+        self.MULT = 0b10100010
+
+    def ram_read(self, address):
+        return bin(self.ram[address])
+
+    def ram_write(self, value, address):
+        self.ram[address] = value
 
     def load(self):
         """Load a program into memory."""
 
         address = 0
 
-        # For now, we've just hardcoded a program:
-
         program = [
             # From print8.ls8
-            0b10000010, # LDI R0,8
+            self.SAVE, # LDI R0,8
             0b00000000,
             0b00001000,
-            0b01000111, # PRN R0
+            self.PRINT_REG, # PRN R0
             0b00000000,
-            0b00000001, # HLT
+            self.HALT, # HLT
         ]
 
         for instruction in program:
             self.ram[address] = instruction
             address += 1
+
+    def load_from_file(self):
+        file_name = sys.argv[1]
+        try:
+            address = 0
+            with open(file_name) as file:
+                for line in file:
+                    split_line = line.split('#')[0]
+                    command = split_line.strip()
+
+                    if command == '':
+                        continue
+
+                    instruction = int(command, 2)
+                    self.ram[address] = instruction
+
+                    address += 1
+
+        except FileNotFoundError:
+            print(f'{sys.argv[0]}: {sys.argv[1]} file was not found')
+            sys.exit()
+
+        if len(sys.argv) < 2:
+            print("Please pass in a second filename: python3 in_and_out.py second_filename.py")
+            sys.exit()
 
 
     def alu(self, op, reg_a, reg_b):
@@ -62,4 +99,38 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        pass
+        self.pc = 0  # program counter
+        running = True
+        while running:
+            command = self.ram[self.pc]
+
+            # SAVE
+            if command == self.SAVE:
+                reg = self.ram[self.pc + 1]
+                num_to_save = self.ram[self.pc + 2]
+                self.reg[reg] = num_to_save
+                self.pc += (command >> 6)
+
+            # PRINT_REG
+            if command == self.PRINT_REG:
+                reg_index = self.ram[self.pc + 1]
+                print(self.reg[reg_index])
+                self.pc += (command >> 6)
+
+            # MULT
+            if command == self.MULT:
+                first_reg = self.ram[self.pc + 1]
+                sec_reg = self.ram[self.pc + 2]
+                self.reg[first_reg] = self.reg[first_reg] * self.reg[sec_reg]
+                self.pc += (command >> 6)
+
+            # HALT
+            if command == self.HALT:
+                running = False
+
+            self.pc += 1
+
+if __name__ == "__main__":
+    cpu = CPU()
+    cpu.load_from_file()
+    cpu.run()
