@@ -8,6 +8,7 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         self.reg = [0] * 8
+        self.reg[7] = 0xF4
         self.pc = 0
         self.ram = [None] * 256
         
@@ -16,6 +17,8 @@ class CPU:
         self.PRINT_REG = 0b01000111
         self.HALT = 0b00000001
         self.MULT = 0b10100010
+        self.PUSH = 0b01000101
+        self.POP = 0b01000110
 
     def ram_read(self, address):
         return bin(self.ram[address])
@@ -122,6 +125,43 @@ class CPU:
                 first_reg = self.ram[self.pc + 1]
                 sec_reg = self.ram[self.pc + 2]
                 self.reg[first_reg] = self.reg[first_reg] * self.reg[sec_reg]
+                self.pc += (command >> 6)
+
+            # PUSH
+            if command == self.PUSH:
+                # decrement the stack pointer
+                self.reg[7] -= 1
+                
+                # get the register number
+                reg = self.ram[self.pc + 1]
+                
+                # get a value from the given register
+                value = self.reg[reg]
+                
+                # put the value at the stack pointer address
+                sp = self.reg[7]
+                self.ram[sp] = value
+                
+                # Increment PC
+                self.pc += (command >> 6)
+
+            if command == self.POP:
+                # get the stack pointer (where do we look?)
+                sp = self.reg[7]
+
+                # get register number to put value in
+                reg = self.ram[self.pc + 1]
+
+                # use stack pointer to get the value
+                value = self.ram[sp]
+                
+                # put the value into the given register
+                self.reg[reg] = value
+                
+                # increment our stack pointer
+                self.reg[7] += 1
+
+                # increment our program counter
                 self.pc += (command >> 6)
 
             # HALT
